@@ -3,6 +3,8 @@
 This is a very basic GUI-only tool for limited bounding box annotation tasks on PDFs where the large suites might feel like overkill.
 The tool will open PDFs directly and allows for users to draw, move, resize and label bounding boxes on all pages before exporting them to JSON.
 
+<img src="./preview.jpg" title="Tool Preview" width="500px" />
+
 ## Features
 
 - **PDF Conversion**: Converts each page of a PDF into an image using a user-specified DPI.
@@ -82,5 +84,3 @@ pip install -r requirements.txt
 - **Annotate**: Create, move, resize, and label bounding boxes on each page as needed.
 - **Manage Annotations**: Use the sidebar to view, select, edit, or delete bounding boxes.
 - **Save/Load**: Save your work to a JSON file and load it later when needed.
-
-*(Additional licensing and collaboration details will be added later.)*
