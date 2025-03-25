@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox
 from tkinter import ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageColor
 from pdf2image import convert_from_path
 import json, datetime, os, hashlib, io, zipfile
 
@@ -20,11 +20,12 @@ TOOLTIP_DELAY = 500         # tooltip delay in ms
 BOX_SELECTED_WIDTH = 4
 BOX_UNSELECTED_WIDTH = 2
 INITIAL_WINDOW_SIZE = "1200x800"
+BBOX_OPACITY = 50           # Opacity of bounding boxes on the canvas in percent
 
 # For bounding-box colors, cycle through if no color is assigned yet for a label
 COLOR_CYCLE = [
     "red", "blue", "green", "orange", "purple", "yellow", "grey", "cyan",
-    "pink", "light sea green", "IndianRed1", "dark khaki"
+    "pink", "aquamarine", "salmon", "khaki"
 ]
 
 # ------------------------- Tooltip class -------------------------
@@ -104,6 +105,8 @@ class BoundingBox:
         self.label = label
         self.properties = {}
         self.rect_id = None
+        self.outline_id = None
+        self.rect_image = None
         self.text_id = None
         self.anchor_id = None
         self.selected = False
@@ -116,19 +119,41 @@ class BoundingBox:
         s_coords = [coord * scale for coord in self.orig_coords]
         width = BOX_SELECTED_WIDTH if self.selected else BOX_UNSELECTED_WIDTH
 
-        # Rectangle
+        # Unpack scaled coordinates for readability
+        x1, y1, x2, y2 = s_coords
+
+        # Compute the width and height (ensure at least 1 pixel)
+        rect_width = max(int(x2 - x1), 1)
+        rect_height = max(int(y2 - y1), 1)
+
+        alpha_value = int(BBOX_OPACITY / 100 * 255)
+        # Convert the named color to an (R, G, B) tuple.
+        rgb = ImageColor.getrgb(color)
+        fill_color = rgb + (alpha_value,)
+
+        overlay_image = Image.new("RGBA", (rect_width, rect_height), fill_color)
+        self.rect_image = ImageTk.PhotoImage(overlay_image)
+
+        # Create or update the overlay image and the border outline.
         if self.rect_id is None:
-            self.rect_id = self.canvas.create_rectangle(
-                *s_coords,
-                outline=color,
-                width=width,
-                fill=color,
-                stipple="gray50",
+            self.rect_id = self.canvas.create_image(
+                x1, y1,
+                anchor="nw",
+                image=self.rect_image,
                 tags=("bbox_rect",)
             )
+            self.outline_id = self.canvas.create_rectangle(
+                x1, y1, x2, y2,
+                outline=color,
+                width=width,
+                fill=""
+            )
         else:
-            self.canvas.coords(self.rect_id, *s_coords)
-            self.canvas.itemconfig(self.rect_id, width=width, fill=color, stipple="gray50", outline=color)
+            self.canvas.coords(self.rect_id, x1, y1)
+            self.canvas.itemconfig(self.rect_id, image=self.rect_image)
+            self.canvas.coords(self.outline_id, x1, y1, x2, y2)
+            self.canvas.itemconfig(self.outline_id, outline=color, width=width)
+
 
         # Label text
         text_x = (s_coords[0] + s_coords[2]) / 2
@@ -142,8 +167,8 @@ class BoundingBox:
 
         # Resize anchor if selected
         if self.selected:
-            anchor_x = s_coords[2]
-            anchor_y = s_coords[3]
+            anchor_x = x2
+            anchor_y = y2
             if self.anchor_id is None:
                 self.anchor_id = self.canvas.create_rectangle(
                     anchor_x - ANCHOR_SIZE, anchor_y - ANCHOR_SIZE,
